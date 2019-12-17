@@ -1,256 +1,314 @@
-breed [ foragers forager ]
-breed [ fruit-bushes fruit-bush]
-breed [ results result]
-
-fruit-bushes-own
-[
-  occupant1
-  occupant2
-  available?
+extensions [
+  profiler
 ]
 
-foragers-own
-[
-  at-bush?
-  waiting
-  strategy
+
+globals [
+  first-move
+  reward
   energy
-  target
-  memory
+  ego
+
+  food-coords
+  fish-coords
+  ego-breed
+  init-energy
+  init-xcor
+  init-ycor
+  init-heading
+
+  land-mobility
+  land-food-preference
+  eye-size
+  ego-land-mobility
+  ego-land-food-preference
+  ego-eye-size
+  zero-ycor
+  eat_radius
+  eye-cost
+
+  food-list
+  simulation_mode
+  vision
+  prey
 ]
 
-results-own
-[
-  age
-]
+breed [fov  a-fov]    ;; Field of View breed for visualization
+breed [food a-food]   ;; Invertebrate organisms that are preyed upon
+breed [fish a-fish]   ;; Vertebrates about to make the leap to terrestrial life
+food-own [ eaten ]
+fish-own [xi yi hi active]
 
-to grow-fruit-bushes [ num-bushes ] ; procedure to create fruit-bushes on a grid without overlap
-  ask n-of num-bushes patches with ; only spawn new bushes on patches spaced 3 apart
-  [
-    pxcor mod 3 = 0
-    and pycor mod 3 = 0
-    and (abs (pycor - max-pycor)) > 1 ; avoid being to closer to the edge
-    and (abs (pxcor - max-pxcor)) > 1
-    and (abs (pycor - min-pycor)) > 1
-    and (abs (pxcor - min-pxcor)) > 1
-    and not any? fruit-bushes-here
-  ]
-  [
-    sprout-fruit-bushes 1
-    [
-      set shape "Bush"
-      set color one-of [ red blue orange yellow ]
-      set size 3
-      set occupant1 nobody
-      set occupant2 nobody
-      set available? true
+;fish-own [
+;  ;eye-size              ;; Size of the eye determines the size of the vision radius (between 1 and max-eye-size)
+;  land-mobility         ;; Determines how fast and efficiently the organism can move on land (between 0 and 1)
+;  land-food-preference  ;; Each fish has a preference towards food on land vs food in water (between 0 and 1)
+;  ;energy                ;; Each fish has an energy level
+;]
+
+to-report run-micro-sims [ num-sims sim-length ]
+  let results []
+  init-setup
+  repeat num-sims [
+    reset-sim
+    repeat sim-length [
+      go
     ]
+    set results lput list first-move reward results
+    ;set results lput list random 360 random 50 results
   ]
+  report results
 end
 
-to set-up
-  clear-all
-  make-foragers-n num-foragers-always-cooperate 1
-  make-foragers-n num-foragers-punish-defectors 3
-  ask patches [set pcolor one-of [32 52 62]]
-  grow-fruit-bushes initial-bushes
+to init-setup
+  if max-pxcor != vision * 2 [
+    resize-world (- vision * 2) (vision * 2) (- vision * 2) (vision * 2)
+  ]
+  ct
+  cp
+  set reward 0
+  ask patches [
+    ifelse (pycor <= zero-ycor)
+    [ set pcolor blue ]
+    [ set pcolor brown ]
+  ]
+
+  set-default-shape fov "circle"
+  set-default-shape food "circle"
+  set-default-shape fish "fish"
+
+  set energy init-energy
+  ;set land-mobility ego-land-mobility
+  set land-food-preference ego-land-food-preference
+  set eye-size ego-eye-size
+  ;set first-move one-of [ -30 0 30 ]
+
+  create-fish 1 [
+     set color red
+     set size 3.5
+
+  ]
+
+  ask turtle 0 [
+    set xcor init-xcor
+    set ycor init-ycor
+    set xi xcor
+    set yi ycor
+    set heading init-heading
+    set hi heading
+    set land-mobility ego-land-mobility
+    ;set land-food-preference ego-land-food-preference
+    set active 1
+    set ego self
+    ;watch-me
+  ]
+
+  foreach food-coords [ c ->
+    create-food 1 [
+      set color black
+      set size 2
+      set xcor item 0 c
+      set ycor item 1 c
+      set eaten 0
+    ]
+  ]
+
+  foreach fish-coords [ c0 ->
+    create-fish 1 [
+      set color red
+      set size 3.5
+      set xcor item 0 c0
+      set ycor item 1 c0
+      set xi xcor
+      set yi ycor
+      set heading item 2 c0
+      set hi heading
+      set active 1
+    ]
+  ]
+  set food-list sort-on [distance ego] food
   reset-ticks
 end
 
+to reset-sim
+  set reward 0
+  set energy init-energy
+  ask fish [set xcor xi set ycor yi set heading hi set active 1]
+  ask food [set eaten 0]
+  reset-ticks
+
+end
+
+
+
 to go
-  ask foragers with [not at-bush?]
-  [
-    if target = nobody or [not available?] of target
-    [
-      set target one-of min-n-of 3 (fruit-bushes with [available?]) [distance myself]
-    ]
-    ifelse target != nobody
-    [
-      face target
-      forward 0.1
-      set energy energy - 0.05
-    ]
-    [
-      rt random 15
-      lt random 15
-      forward 0.1
-      set energy energy - 0.05
-    ]
-    if target != nobody and distance target < 0.2
-    [
-      arrive-at-bush target
-    ]
-    if energy < 0
-    [die]
-    if energy > 200
-    [
-      set energy energy - 100
-      hatch-foragers 1
-      [
-        set shape "caveperson"
-        set color gray
-        set size 3
-        set energy 100
-        set strategy [strategy] of myself
-        set waiting 0
-        set at-bush? false
-        set target nobody
-        set memory turtle-set nobody
-      ]
-
-    ]
-
+  if energy < 0 [
+    stop
   ]
-  process-bushes
-  ask results
-  [
-    set age age + 1
-    if age > visualization-peristence-ticks
-    [die]
+  let last-energy energy
+  ask fish with [active = 1] [
+    ifelse self = ego [
+      move-me
+      consume-energy
+      eat-food
+      ;show energy
+    ] [
+      move-others
+      eat-food
+    ]
   ]
-  if random 100 < tree-grow-chance
-  [grow-fruit-bushes 1]
+
+  ;ask turtle-set ego [
+  ;  death
+  ;]
+  ask fish with [
+    pxcor <= min-pxcor or
+    pxcor >= max-pxcor or
+    pycor <= min-pycor or
+    pycor >= max-pycor
+  ] [ set active 0 ] ; leaving the world; forget about them
+
+  if [active] of ego = 0 or energy < 0 [ ; ego is dead
+    set energy -1000
+  ]
+  set reward reward + (energy - last-energy) * reward-discount ^ ticks
   tick
 end
 
-to arrive-at-bush [t]
-  (ifelse
-    [occupant1] of t = nobody ;; if the first person here
-    [
-      ask t [set occupant1 myself]
-      set at-bush? true
+to move-others
+  let radius rad-size 1.0
+  let aprey nobody
+  if ticks = 0 [
+    set aprey one-of (food with [(distance myself) < radius])
+  ]
+  ifelse aprey != nobody [
+    ;; If there's a prey in its field of vision, go towards it
+    face aprey
+    ifelse distance aprey < 1 [
+      move-to aprey
+    ] [
+    fd 0.5
     ]
-    [occupant2] of t = nobody
-    [
-      ask t [set occupant2 myself set available? false]
-      set at-bush? true
-    ]
-  )
-end
-
-to play-the-game [p1 p2]
-  let s1 (get-strategy p1 p2)
-  let s2 (get-strategy p2 p1)
-  (ifelse
-    p2 = nobody
-    [
-      ask p1 [set energy energy + 7 set waiting 0 set at-bush? false]
-    ]
-    s1 = 1 and s2 = 1
-    [
-      ask p1 [set energy energy + 10 set waiting 0 set at-bush? false]
-      ask p2 [set energy energy + 10 set waiting 0 set at-bush? false]
-      hatch-results 1 [set age 0 set shape "cooperate" set size 3]
-      process-outcome p1 p2 1
-      process-outcome p2 p1 1
-    ]
-    s1 = 1 and s2 = 2
-    [
-      ask p1 [set waiting 0 set at-bush? false]
-      ask p2 [set energy energy + 15 set waiting 0 set at-bush? false]
-      hatch-results 1 [set age 0 set shape "cheat" set size 3]
-      process-outcome p1 p2 3
-      process-outcome p2 p1 2
-    ]
-    s1 = 2 and s2 = 1
-    [
-      ask p1 [set energy energy + 15 set waiting 0 set at-bush? false]
-      ask p2 [set waiting 0 set at-bush? false]
-      hatch-results 1 [set age 0 set shape "cheat" set size 3]
-      process-outcome p1 p2 2
-      process-outcome p2 p1 3
-    ]
-    [
-      ask p1 [set energy energy + 5 set waiting 0 set at-bush? false]
-      ask p2 [set energy energy + 5 set waiting 0 set at-bush? false]
-      hatch-results 1 [set age 0 set shape "defect" set size 3]
-      process-outcome p1 p2 4
-      process-outcome p2 p1 4
-  ])
-
-end
-
-to process-bushes
-  ask fruit-bushes
-  [
-    (ifelse
-      occupant2 != nobody
-      [
-        ask occupant2 [set waiting waiting + 1]
-        if [waiting] of occupant2 > wait-time
-        [
-          play-the-game occupant1 occupant2
-          die
-        ]
-      ]
-      occupant1 != nobody
-      [
-        ask occupant1 [set waiting waiting + 1]
-        if [waiting] of occupant1 > wait-time
-        [
-          play-the-game occupant1 nobody
-          die
-        ]
-      ]
-    )
+  ] [
+    lt ( random 101 ) - 50
+    fd 0.5
   ]
 end
 
-to-report get-strategy [p1 p2]
-  (ifelse
-    p1 = nobody or p2 = nobody
-    [report 0]
-    [strategy] of p1 = 1
-    [report 1]
-    [strategy] of p1 = 2
-    [report 2]
-    [strategy] of p1 = 3
-    [
-      if-else member? p2 ([memory] of p1)
-      [report 2]
-      [report 1]
-    ]
-  )
-end
+to move-me
+  ;; Determine the step size based on the land-mobility parameter
+  let speed 0.5
+  let step-size ifelse-value ( ycor < zero-ycor ) [ 1 - land-mobility ] [ 1 + land-mobility ]
+  ;; Add a random element so that fish can make some progress on land even when land-mobility is 0
+  set step-size step-size * speed + random-float 0.1
 
-to process-outcome [p1 p2 outcome] ;;1-cooperate 2-I cheated 3-got cheated 4-double defect
-  (ifelse
-    outcome = 3 and [strategy] of p1 = 3
-    [
-      ask p1 [set memory (turtle-set memory p2)]
-    ]
-  )
-end
+  let radius rad-size ego-eye-size
+  ;let weight land-food-preference
 
-to make-a-defector
-  make-foragers-n 1 2
-end
-
-to make-foragers-n [n s]
-  create-foragers n
+  ;; Choose the closest target based on preference
+  ;let prey min-one-of (food in-radius radius) [ distance myself ]
+  if simulation_mode = "Random Food in Radius"
   [
-    set shape "caveperson"
-    set color gray
-    set size 3
-    set xcor random-xcor
-    set ycor random-ycor
-    set energy 100
-    set strategy s
-    set waiting 0
-    set at-bush? false
-    set target nobody
-    set memory turtle-set nobody
+    if ticks = 0 [
+      ifelse not empty? food-list [
+        set prey first food-list
+        set food-list but-first food-list
+      ]
+      [set prey nobody]
+    ]
+
+    ifelse prey != nobody [
+      ;; If there's a prey in its field of vision, go towards it
+      face prey
+      ifelse distance prey < step-size [
+        move-to prey
+      ] [
+        fd step-size
+      ]
+    ] [
+      ;; Else move randomly
+      if ticks = 0 [
+        rt (random 101) - 50
+      ]
+      fd step-size
+    ]
   ]
+  if ticks = 0 [
+    set first-move (subtract-headings init-heading heading)
+  ]
+  if simulation_mode = "Random Turn by 30 Degrees"
+  [
+    if ticks = 0 [
+      rt (random 61) - 30
+      set first-move (subtract-headings init-heading heading)
+    ]
+    fd step-size
+  ]
+  if simulation_mode = "Random Direction"
+  [
+    if ticks = 0 [
+      rt random 361
+      set first-move (subtract-headings init-heading heading)
+    ]
+    fd step-size
+  ]
+  if simulation_mode = "Random Cardinal Direciton"
+  [
+    if ticks = 0 [
+      let num random 4
+      ifelse num = 0 [set heading 0][ifelse num = 1 [set heading 90][ifelse num = 2 [set heading 180][set heading 270]]]
+      set first-move (subtract-headings init-heading heading)
+    ]
+    fd step-size
+  ]
+
+
+  ;; Changes the size of the field of vision if it steps on land
+;  show "ticks"
+;  show ticks
+;  print "ycor"
+;  print ycor
+ ; print "energy"
+;  print energy
+
+end
+
+to-report rad-size [ eye ]
+  ;; Eye size determines the radius of the field of vision
+  ;; The effect of eye size on the field of vision under water vs on land is vastly different
+  report ifelse-value ( ycor < zero-ycor ) [ eye / 5 + 2 ] [ ( eye ) * 5 + 3 ]
+end
+
+to consume-energy
+  ;; Moving consumes energy, organisms adapted to water consume more energy on land
+  ifelse ycor < zero-ycor
+    [ set energy energy - abs((1 + land-mobility) * 5 - 0.5) / 1 ]
+    [ set energy energy - abs((1 - land-mobility) * 5 - 0.5) / 1 ]
+  ;; Having large eyes also consumes energy
+  set energy energy - abs((eye-size) / (eye-cost)) / 1
+end
+
+to eat-food
+  let prey-here one-of (food with [eaten = 0]) in-radius eat_radius              ;; Catch a prey thats close
+  if prey-here != nobody                               ;; If caught,
+    [ ask prey-here [ set eaten 1 ] ;; kill it
+      if self = ego [
+      set energy energy + energy-gain-from-food ]
+  ] ;; get energy from eating
+end
+
+to death
+  if energy < 0 [ die ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-422
+210
 10
-1080
-669
+243
+44
 -1
 -1
-10.0
+25.0
 1
 10
 1
@@ -260,38 +318,23 @@ GRAPHICS-WINDOW
 1
 1
 1
--32
-32
--32
-32
+0
+0
+0
+0
 1
 1
 1
 ticks
 30.0
 
-SLIDER
-32
-10
-224
-43
-num-foragers-always-cooperate
-num-foragers-always-cooperate
-0
-100
-0.0
-1
-1
-NIL
-HORIZONTAL
-
 BUTTON
-33
-124
-100
-157
+0
+80
+82
+113
 NIL
-set-up
+init-setup
 NIL
 1
 T
@@ -302,26 +345,11 @@ NIL
 NIL
 1
 
-SLIDER
-33
-87
-205
-120
-initial-bushes
-initial-bushes
-0
-100
-21.0
-1
-1
-NIL
-HORIZONTAL
-
 BUTTON
-106
-125
-169
-158
+65
+80
+130
+113
 NIL
 go
 T
@@ -334,123 +362,57 @@ NIL
 NIL
 1
 
-SLIDER
-33
-161
-205
-194
-tree-grow-chance
-tree-grow-chance
-0
-100
-21.0
-1
-1
+MONITOR
+80
+165
+137
+210
 NIL
-HORIZONTAL
+energy
+17
+1
+11
 
 MONITOR
-66
-281
-161
-326
+0
+165
+77
+210
 NIL
-count foragers
+first-move
 17
 1
 11
 
 SLIDER
-32
-201
-204
-234
-wait-time
-wait-time
 0
-100
-30.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-33
-238
-204
-271
-visualization-peristence-ticks
-visualization-peristence-ticks
+10
+200
+43
+energy-gain-from-food
+energy-gain-from-food
 0
-100
-100.0
-1
-1
-NIL
-HORIZONTAL
-
-PLOT
-35
-378
-261
-528
-Strategy Types
-NIL
-NIL
-0.0
-3.0
-0.0
-10.0
-true
-true
-"" "clear-plot "
-PENS
-"Cooperate" 1.0 1 -13345367 true "" "plotxy 0 count foragers with [strategy = 1]"
-"Defect" 1.0 1 -2674135 true "" "plotxy 1 count foragers with [strategy = 2]"
-"Memory Punish" 1.0 1 -13840069 true "" "plotxy 2 count foragers with [strategy = 3]"
-
-BUTTON
-47
-337
-171
-370
-NIL
-make-a-defector
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-SLIDER
-33
 50
-224
-83
-num-foragers-punish-defectors
-num-foragers-punish-defectors
-0
-100
-48.0
+4.0
 1
 1
 NIL
 HORIZONTAL
 
-TEXTBOX
-251
-204
-401
-288
-   / Co-Op | Cheat\nC --------------------\no |(10,10) | (15,0)|  \n_ |_____________\nC |(0,15)  | (5,5)  |\nh |_____________
-11
-0.0
+SLIDER
+0
+120
+172
+153
+reward-discount
+reward-discount
+0
 1
+0.9
+0.1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -523,26 +485,6 @@ Circle -7500403 true true 110 75 80
 Line -7500403 true 150 100 80 30
 Line -7500403 true 150 100 220 30
 
-bush
-false
-0
-Circle -10899396 true false 178 108 94
-Rectangle -6459832 true false 120 255 180 300
-Circle -10899396 true false 125 66 108
-Circle -10899396 true false 11 116 127
-Circle -10899396 true false 45 165 120
-Circle -10899396 true false 119 134 152
-Circle -10899396 true false 58 73 124
-Circle -7500403 true true 90 120 30
-Circle -7500403 true true 120 165 30
-Circle -7500403 true true 165 105 30
-Circle -7500403 true true 180 165 30
-Circle -7500403 true true 45 165 30
-Circle -7500403 true true 75 210 30
-Circle -7500403 true true 150 225 30
-Circle -7500403 true true 210 210 30
-Circle -7500403 true true 225 135 30
-
 butterfly
 true
 0
@@ -565,27 +507,6 @@ Polygon -16777216 true false 162 80 132 78 134 135 209 135 194 105 189 96 180 89
 Circle -7500403 true true 47 195 58
 Circle -7500403 true true 195 195 58
 
-caveperson
-false
-0
-Circle -7500403 true true 120 30 60
-Rectangle -7500403 true true 135 75 165 195
-Polygon -7500403 true true 135 90 120 90 105 105 90 135 210 135 195 105 180 90 165 90
-Polygon -7500403 true true 120 195 90 270 120 285 150 195 180 285 210 270 180 195 180 120 120 120
-Polygon -7500403 true true 105 105 60 165 90 180 120 135
-Polygon -7500403 true true 195 105 240 165 210 180 180 135
-Polygon -6459832 true false 90 120 195 225 180 165 135 90 105 90 90 120
-
-cheat
-false
-0
-Line -2674135 false 75 45 225 255
-Line -2674135 false 225 45 75 255
-Line -2674135 false 225 60 90 255
-Line -2674135 false 90 45 225 240
-Line -2674135 false 75 60 210 255
-Line -2674135 false 210 45 75 240
-
 circle
 false
 0
@@ -596,13 +517,6 @@ false
 0
 Circle -7500403 true true 0 0 300
 Circle -16777216 true false 30 30 240
-
-cooperate
-false
-0
-Circle -13840069 false false 45 45 210
-Circle -13840069 false false 60 60 180
-Circle -13840069 false false 75 75 150
 
 cow
 false
@@ -615,12 +529,6 @@ cylinder
 false
 0
 Circle -7500403 true true 0 0 300
-
-defect
-false
-0
-Rectangle -1184463 false false 75 45 225 255
-Rectangle -1184463 false false 90 60 210 240
 
 dot
 false
@@ -865,5 +773,5 @@ true
 Line -7500403 true 150 150 90 180
 Line -7500403 true 150 150 210 180
 @#$#@#$#@
-0
+1
 @#$#@#$#@

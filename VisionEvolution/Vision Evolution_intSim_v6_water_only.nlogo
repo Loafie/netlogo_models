@@ -6,6 +6,10 @@ globals [
   ;sim-n
   ;sim-l
   reward-discount
+  food-per-sim
+  results-per-sim
+  smart-moves
+  dumb-moves
 ]
 
 breed [fov  a-fov]    ;; Field of View breed for visualization
@@ -24,11 +28,14 @@ fish-own [
 to setup
   ls:reset
   ca
+  set food-per-sim [0 0 0 0]
+  set smart-moves 0
+  set dumb-moves 0
   ;; Half the world is water, and the other half is land
   ask patches [
-    ifelse (pycor <= 0)
-    [ set pcolor blue ]
-    [ set pcolor brown ]
+  ;;  ifelse (pycor <= 0)
+     set pcolor blue
+  ;;  [ set pcolor brown ]
   ]
 
   ;; Fish has a 360 vision
@@ -53,8 +60,8 @@ to setup
     setxy random-xcor -1 * random max-pycor  ;; Initially underwater
     ;; The shade of its color represents the land-mobility value of the fish
     set color scale-color red land-mobility 4 -2.5
-    set sim-n 3
-    set sim-l 3
+    set sim-n 0
+    set sim-l 0
   ]
 
   ask fish [ produce-fov ] ;; For visualization
@@ -99,10 +106,16 @@ to go
   ask fish [
     let radius rad-size eye-size
     let prey min-one-of (food with [(distance myself) < radius])[distance myself]
-    ifelse prey != nobody or abs(ycor) < radius
-    [move-smart (rad-size eye-size) sim-n sim-l]
+    ifelse prey != nobody
+    [
+      move-smart (rad-size eye-size) sim-n sim-l
+      set smart-moves smart-moves + 1
+    ]
     ;set energy (energy - (sim-l * sim-n) / 50)]
-    [move-random]
+    [
+      move-random
+      set dumb-moves dumb-moves + 1
+    ]
     consume-energy
     eat-food
     death
@@ -132,7 +145,7 @@ to move-random
   let radius rad-size eye-size
   ;; Determine the step size based on the land-mobility parameter
   ;let speed 0.5
-  let step-size ifelse-value ( ycor < 0 ) [ 1 - land-mobility ] [ 1 + land-mobility ]
+  let step-size  (1 - land-mobility)
   ;; Add a random element so that fish can make some progress on land even when land-mobility is 0
   set step-size step-size * speed + random-float 0.1
 
@@ -154,19 +167,17 @@ end
 to-report rad-size [ eye ]
   ;; Eye size determines the radius of the field of vision
   ;; The effect of eye size on the field of vision under water vs on land is vastly different
-  report ifelse-value ( ycor < 0 ) [ eye / 5 + 2 ] [ eye * 5 + 3 ]
+  report  eye / 5 + 2
 end
 
 to consume-energy
   ;; Moving consumes energy, organisms adapted to water consume more energy on land
-  ifelse ycor < 0
-    [ set energy energy - abs((1 + land-mobility) * 5 - 0.5) / 1 ]
-    [ set energy energy - abs((1 - land-mobility) * 5 - 0.5) / 1 ]
+  set energy energy - (abs((1 + land-mobility) * 5 - 0.5) + random-float 0.1 ) / 1
   ;; Having large eyes also consumes energy
   set energy energy - abs((eye-size) / (eye-cost)) / 1
   ; change cognition cost make it related to sim-n * sim-l
-  set energy (energy - ( sim-n) * cognition-cost / 100)
-  set energy (energy - ( sim-l) * cognition-cost / 100)
+  set energy (energy - ( sim-n * cognition-cost / 100 ))
+  set energy (energy - ( sim-l * cognition-cost / 100 ))
 end
 
 to move-smart [ vision n l ]
@@ -177,21 +188,24 @@ to move-smart [ vision n l ]
 
   ;; Determine the step size based on the land-mobility parameter
   ;let speed 0.5
-  let step-size ifelse-value ( ycor < 0 ) [ 1 - land-mobility ] [ 1 + land-mobility ]
+  let step-size  1 - land-mobility
   ;; Add a random element so that fish can make some progress on land even when land-mobility is 0
   set step-size step-size * speed + random-float 0.1
 
-  let radius rad-size eye-size
-  let prey min-one-of (food with [(distance myself) < radius])[distance myself]
+  let prey min-one-of (food with [(distance myself) < vision])[distance myself]
 
   let results  ifelse-value (n <= 1 or l <= 0) [ [] ] [ simulate vision n l ]
+
+
   ;show results
   ;show prey
 
   ifelse empty? results [
     move-random
   ] [
-    lt pick-best results
+    ifelse run-sims
+    [ lt pick-best results ]
+    [ lt random 360 ]
     ifelse prey != nobody and distance prey < step-size [
       move-to prey
     ] [
@@ -201,7 +215,7 @@ to move-smart [ vision n l ]
 
    ;; Changes the size of the field of vision if it steps on land
   ask out-link-neighbors [
-    set size 2 * radius
+    set size 2 * vision
     set color fov-color
   ]
 end
@@ -232,11 +246,21 @@ end
 
 to setup-mind [ vision ]
   if empty? ls:models [
-    ls:create-models 1 "VE_micro_sim_v6.nlogo"
+    ls:create-models 1 "VE_micro_sim_v6_mod.nlogo"
   ]
   let xc pxcor
   let yc pycor
   let p patch-here
+  let num-food length [ (list (rel-xcor p) (rel-ycor p)) ] of (food with [(distance myself) < vision])
+  (ifelse
+    num-food = 0
+    [set food-per-sim (list (1 + item 0 food-per-sim) (item 1 food-per-sim) (item 2 food-per-sim) (item 3 food-per-sim))]
+    num-food = 1
+    [set food-per-sim (list (item 0 food-per-sim) (1 + item 1 food-per-sim) (item 2 food-per-sim) (item 3 food-per-sim))]
+    num-food = 2
+    [set food-per-sim (list (item 0 food-per-sim) (item 1 food-per-sim) (1 + item 2 food-per-sim) (item 3 food-per-sim))]
+    [set food-per-sim (list (item 0 food-per-sim) (item 1 food-per-sim) (item 2 food-per-sim) (1 + item 3 food-per-sim))]
+  )
   ls:let fdcs [ (list (rel-xcor p) (rel-ycor p)) ] of (food with [(distance myself) < vision])
   ls:let fics [ (list (rel-xcor p) (rel-ycor p) heading) ] of (other fish with [(distance myself) < vision])
 
@@ -336,8 +360,14 @@ end
 to-report mutate-sim [ var rate lower ]
   ;; Mutates the given variable value based on mutation rate
   ;; The variable must remain in its viable range
-  let value ( var + (random (rate + 2)) - rate )
-  if value < lower [ set value lower ]
+  let value var
+  if random-float 100 < 10 [
+    ifelse random 2 = 0
+    [set value value + 1]
+    [set value value - 1]
+  ]
+  if value < lower
+  [set value lower]
   report value
 end
 
@@ -432,7 +462,7 @@ GRAPHICS-WINDOW
 1
 0
 1
-0
+1
 1
 -60
 60
@@ -613,7 +643,7 @@ mutation-rate
 mutation-rate
 0
 1
-0.07
+0.13
 0.01
 1
 NIL
@@ -647,7 +677,7 @@ initial-eye-size
 initial-eye-size
 0
 25
-0.5
+2.0
 0.1
 1
 mm
@@ -677,7 +707,7 @@ eye-cost
 eye-cost
 0
 10
-9.0
+9.1
 0.1
 1
 NIL
@@ -764,7 +794,7 @@ cognition-cost
 cognition-cost
 0
 10
-0.5
+2.0
 0.1
 1
 NIL
@@ -828,6 +858,83 @@ MONITOR
 170
 NIL
 count food
+17
+1
+11
+
+SWITCH
+820
+520
+923
+553
+run-sims
+run-sims
+0
+1
+-1000
+
+MONITOR
+610
+600
+727
+645
+NIL
+item 0 food-per-sim
+17
+1
+11
+
+MONITOR
+610
+650
+727
+695
+NIL
+item 1 food-per-sim
+17
+1
+11
+
+MONITOR
+730
+600
+847
+645
+NIL
+item 2 food-per-sim
+17
+1
+11
+
+MONITOR
+730
+650
+847
+695
+NIL
+item 3 food-per-sim
+17
+1
+11
+
+MONITOR
+985
+645
+1067
+690
+NIL
+smart-moves
+17
+1
+11
+
+MONITOR
+985
+595
+1067
+640
+NIL
+dumb-moves
 17
 1
 11
