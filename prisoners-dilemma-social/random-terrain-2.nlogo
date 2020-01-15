@@ -1,18 +1,32 @@
-globals [water-level max-level min-level lb ub]
+globals [water-level max-level min-level lb ub colors]
+breed [trees tree]
+breed [monkeys monkey]
+trees-own [ age ]
+
 patches-own
 [
   level
+  land-mass
+  dist-to-tree
+  neighbors-diag
+  visited
 ]
 
 to setup
   clear-all
- ; ask patches
- ; [
-   ; set level random 100
- ; ]
+  ask patches
+  [
+    set neighbors-diag ( neighbors with [
+      (not member? self [neighbors4] of myself)] )
+  ]
+  set colors [red green yellow cyan orange brown grey magenta]
+  ; ask patches
+  ; [
+  ; set level random 100
+  ; ]
   ask n-of 50 patches
   [
-    set level level + 500
+    set level level + 2500
   ]
   repeat smooth
   [
@@ -30,10 +44,81 @@ to setup
   set min-level ((min-level-ratio * ub) + ((1 - min-level-ratio) * lb))
   set water-level max-level
   ask patches with [level < water-level] [set pcolor blue]
+  ask n-of 20 patches with [level >= water-level]
+  [
+    sprout-monkeys 1 [set size 3 set shape "monkey" set color brown]
+  ]
   reset-ticks
 end
 
+to label-patches
+  ask patches
+  [
+    ifelse (level < water-level)
+    [
+      set land-mass -10
+    ]
+    [
+      set land-mass -1
+    ]
+  ]
+  let counter 1
+  while [any? patches with [land-mass = -1]]
+  [
+    ask one-of patches with [land-mass = -1]
+    [do-label counter]
+    set counter counter + 1
+  ]
+end
 
+to do-label [c]
+  set land-mass c
+  ask neighbors
+  [
+    if land-mass = -1
+    [ do-label c ]
+  ]
+end
+
+to make-distance-gradient
+  ask patches [set dist-to-tree 10000000 set visited False]
+  let q []
+  ask trees
+  [
+    ask patch-here [set dist-to-tree 0]
+    set q lput patch-here q
+  ]
+  while [not empty? q]
+  [
+    ;set q sort-by [ [a b] -> [dist-to-tree] of a < [dist-to-tree] of b] q
+    let curr item 0 q
+    set q butfirst q
+    if not [visited] of curr
+    [
+      ask curr
+      [
+        let d dist-to-tree
+        set visited true
+        ask neighbors4
+        [
+          if not visited and dist-to-tree > (d + 1) and level >= water-level
+          [
+            set dist-to-tree (d + 1)
+            set q lput self q
+          ]
+        ]
+        ask neighbors-diag
+        [
+          if not visited and dist-to-tree > (d + (sqrt 2)) and level >= water-level
+          [
+            set dist-to-tree (d + (sqrt 2))
+            set q lput self q
+          ]
+        ]
+      ]
+    ]
+  ]
+end
 
 to go
   set water-level ((max-level + min-level) / 2.0) + ((max-level - min-level) / 2.0) * sin (rate * ticks)
@@ -43,6 +128,35 @@ to go
     set pcolor (rgb (1 + (diff * 246)) (122 + (diff * 120)) (30 + (diff * 138)))
   ]
   ask patches with [level < water-level] [set pcolor blue]
+  label-patches
+  let roll random-float 1
+  if roll < tree-grow-probability
+  [
+    ask one-of patches with [level >= water-level]
+    [
+      sprout-trees 1 [set age 0 set shape "PalmFruitTree" set size 4]
+    ]
+  ]
+  ask trees
+  [
+    set age age + 1
+    if [level] of patch-here < water-level [die]
+    if age > max-tree-age [die]
+  ]
+  make-distance-gradient
+  ask monkeys
+  [
+    let target 0
+    ask patch-here
+    [
+      ask trees-here [die]
+      set target min-one-of neighbors [dist-to-tree]
+    ]
+    ifelse random-float 1 < 0.1
+    [rt random 360]
+    [face target]
+    fd 0.2
+  ]
   tick
 end
 
@@ -51,11 +165,11 @@ end
 GRAPHICS-WINDOW
 210
 10
-868
-669
+863
+664
 -1
 -1
-10.0
+5.0
 1
 10
 1
@@ -65,10 +179,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--32
-32
--32
-32
+-64
+64
+-64
+64
 1
 1
 1
@@ -76,10 +190,10 @@ ticks
 30.0
 
 BUTTON
-33
-51
-96
-84
+35
+241
+98
+274
 NIL
 setup
 NIL
@@ -93,25 +207,25 @@ NIL
 1
 
 SLIDER
-12
-106
-184
-139
+21
+286
+193
+319
 smooth
 smooth
 0
-200
-200.0
+400
+400.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-12
-143
-184
-176
+21
+323
+193
+356
 max-level-ratio
 max-level-ratio
 0.1
@@ -123,10 +237,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-12
-179
-184
-212
+21
+359
+193
+392
 min-level-ratio
 min-level-ratio
 0.1
@@ -138,10 +252,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-12
-215
-184
-248
+21
+395
+193
+428
 rate
 rate
 0.01
@@ -153,10 +267,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-113
-51
-176
-84
+115
+241
+178
+274
 NIL
 go
 T
@@ -168,6 +282,51 @@ NIL
 NIL
 NIL
 1
+
+SLIDER
+20
+432
+193
+465
+tree-grow-probability
+tree-grow-probability
+0
+1
+0.3
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+20
+469
+193
+502
+max-tree-age
+max-tree-age
+0
+500
+150.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+22
+201
+194
+234
+init-trees
+init-trees
+0
+200
+50.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -371,6 +530,32 @@ line half
 true
 0
 Line -7500403 true 150 0 150 150
+
+monkey
+false
+0
+Polygon -7500403 true true 64 182 79 227 49 257 79 287 94 272 64 257 113 229 105 191 131 198 124 257 154 287 169 272 139 257 169 197 154 182 177 183 173 230 185 277 216 272 199 257 199 197 238 263 274 262 248 247 220 194 214 152 199 122 139 107 94 122 64 152 64 182
+Circle -7500403 true true 178 88 62
+Polygon -7500403 true true 75 165 45 150 30 120 45 90 90 75 120 60 120 45 105 45 90 45 105 30 135 30 150 60 120 75 60 105 60 120 90 135 105 135
+Circle -7500403 true true 222 91 30
+Circle -7500403 true true 165 90 30
+
+palmfruittree
+false
+0
+Polygon -10899396 true false 120 30 120 30 180 75 165 150 150 105 120 60 120 30
+Polygon -13840069 true false 90 90 120 30 180 75 180 150 150 105 120 60 90 90
+Polygon -6459832 true false 135 270 165 270 165 210 135 150 150 60 120 60 105 150 120 210 105 270 135 270 120 270
+Polygon -10899396 true false 120 90 150 30 210 75 225 150 180 105 150 60 120 90
+Circle -1184463 true false 180 75 30
+Polygon -10899396 true false 135 90 105 30 45 75 45 150 75 105 105 60 135 90
+Circle -1184463 true false 60 90 30
+Circle -1184463 true false 75 45 30
+Circle -1184463 true false 105 75 30
+Circle -1184463 true false 150 105 30
+Polygon -13840069 true false 105 90 135 30 195 75 195 150 165 105 135 60 105 90
+Polygon -13840069 true false 165 90 120 30 75 75 75 150 105 105 135 60 165 90
+Circle -1184463 true false 150 60 30
 
 pentagon
 false
