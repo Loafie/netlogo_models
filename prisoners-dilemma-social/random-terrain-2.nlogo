@@ -1,7 +1,23 @@
 globals [water-level max-level min-level lb ub colors]
 breed [trees tree]
 breed [monkeys monkey]
-trees-own [ age ]
+trees-own
+[
+  occupant1
+  occupant2
+  available?
+  age
+]
+
+monkeys-own
+[
+  at-bush?
+  waiting
+  strategy
+  energy
+  target
+  memory
+]
 
 patches-own
 [
@@ -42,11 +58,23 @@ to setup
 
   set max-level ((max-level-ratio * ub) + ((1 - max-level-ratio) * lb))
   set min-level ((min-level-ratio * ub) + ((1 - min-level-ratio) * lb))
-  set water-level max-level
+  set water-level min-level
   ask patches with [level < water-level] [set pcolor blue]
   ask n-of 20 patches with [level >= water-level]
   [
-    sprout-monkeys 1 [set size 3 set shape "monkey" set color brown]
+    sprout-monkeys 1
+    [
+      set size 3
+      set shape "monkey"
+      set color 33
+      set energy 100
+      set strategy 1
+      set waiting 0
+      set at-bush? false
+      set target nobody
+      set memory turtle-set nobody
+    ]
+
   ]
   reset-ticks
 end
@@ -121,43 +149,87 @@ to make-distance-gradient
 end
 
 to go
-  set water-level ((max-level + min-level) / 2.0) + ((max-level - min-level) / 2.0) * sin (rate * ticks)
+  set water-level ((max-level + min-level) / 2.0) + ((max-level - min-level) / 2.0) * sin (rate * ticks + 270)
   ask patches with [level >= water-level]
   [
     let diff ((level - lb) / (ub - lb))
     set pcolor (rgb (1 + (diff * 246)) (122 + (diff * 120)) (30 + (diff * 138)))
   ]
   ask patches with [level < water-level] [set pcolor blue]
-  label-patches
+  ;;label-patches
   let roll random-float 1
   if roll < tree-grow-probability
   [
     ask one-of patches with [level >= water-level]
     [
-      sprout-trees 1 [set age 0 set shape "PalmFruitTree" set size 4]
+      if not any? trees-here [
+        sprout-trees 1 [set age 0 set shape "PalmFruitTree" set size 4 set available? true]
+      ]
     ]
   ]
   ask trees
   [
     set age age + 1
     if [level] of patch-here < water-level [die]
-    if age > max-tree-age [die]
+    ;;if age > max-tree-age [die]
   ]
-  make-distance-gradient
-  ask monkeys
+  ;;make-distance-gradient
+  ask monkeys with [not at-bush?]
   [
-    let target 0
-    ask patch-here
+    if target = nobody or [not available?] of target
     [
-      ask trees-here [die]
-      set target min-one-of neighbors [dist-to-tree]
+    let targs trees with [available? and (distance myself < 10)]
+    let x 0
+    ifelse ((count targs) > 3)
+    [set x 3]
+    [set x count targs]
+
+    ifelse any? targs
+      [set target one-of min-n-of x targs [distance myself]]
+      [set target nobody]
     ]
-    ifelse random-float 1 < 0.1
-    [rt random 360]
-    [face target]
+    ifelse target != nobody
+    [
+      face target
+    ]
+    [
+      rt (random 31) - 15
+    ]
+    if [level] of patch-ahead 0.2 < water-level
+    [
+      rt 180
+      set target nobody
+    ]
     fd 0.2
+    set energy energy - 0.2
+    if target != nobody and distance target < 0.3
+    [
+      arrive-at-tree target
+    ]
+    if energy < 0
+    [die]
+    if [level] of patch-here < water-level
+    [die]
+    if energy > 200
+    [
+      set energy energy - 100
+      hatch-monkeys 1
+      [
+
+        set energy 100
+        set waiting 0
+        set at-bush? false
+        set target nobody
+        set memory turtle-set nobody
+      ]
+    ]
   ]
   tick
+end
+
+to arrive-at-tree [t]
+  ask t [die]
+  set energy energy + 20
 end
 
 ; 247 153 138
@@ -230,7 +302,7 @@ max-level-ratio
 max-level-ratio
 0.1
 0.9
-0.5
+0.4
 0.01
 1
 NIL
@@ -245,7 +317,7 @@ min-level-ratio
 min-level-ratio
 0.1
 0.9
-0.2
+0.1
 0.01
 1
 NIL
@@ -327,6 +399,24 @@ init-trees
 1
 NIL
 HORIZONTAL
+
+PLOT
+879
+256
+1079
+406
+Monkeys
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot count monkeys"
 
 @#$#@#$#@
 ## WHAT IS IT?
