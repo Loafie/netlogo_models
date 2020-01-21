@@ -67,7 +67,14 @@ to setup
   set min-level ((min-level-ratio * ub) + ((1 - min-level-ratio) * lb))
   set water-level min-level
   ask patches with [level < water-level] [set pcolor blue]
-  ask n-of 20 patches with [level >= water-level]
+  spawn-initial-monkeys initial-chumps 1
+  spawn-initial-monkeys initial-cheaters 2
+  spawn-initial-monkeys initial-vengeful 3
+  reset-ticks
+end
+
+to spawn-initial-monkeys [n s]
+  ask n-of n patches with [level >= water-level]
   [
     sprout-monkeys 1
     [
@@ -75,16 +82,15 @@ to setup
       set shape "monkey"
       set color 33
       set energy 100
-      set strategy 1
+      set strategy s
       set waiting 0
       set at-tree? false
       set target nobody
       set memory turtle-set nobody
     ]
-
   ]
-  reset-ticks
 end
+
 
 to label-patches
   ask patches
@@ -304,12 +310,12 @@ to play-the-game [p1 p2]
   (ifelse
     p2 = nobody
     [
-      ask p1 [set energy energy + 10 set waiting 0 set at-tree? false]
+      ask p1 [set energy energy + solo-reward set waiting 0 set at-tree? false]
     ]
     s1 = 1 and s2 = 1
     [
-      ask p1 [set energy energy + 25 set waiting 0 set at-tree? false]
-      ask p2 [set energy energy + 25 set waiting 0 set at-tree? false]
+      ask p1 [set energy energy + mutual-cooperate-reward set waiting 0 set at-tree? false]
+      ask p2 [set energy energy + mutual-cooperate-reward set waiting 0 set at-tree? false]
       hatch-results 1 [set age 0 set shape "cooperate" set size 3]
       process-outcome p1 p2 1
       process-outcome p2 p1 1
@@ -317,22 +323,22 @@ to play-the-game [p1 p2]
     s1 = 1 and s2 = 2
     [
       ask p1 [set waiting 0 set at-tree? false]
-      ask p2 [set energy energy + 40 set waiting 0 set at-tree? false]
+      ask p2 [set energy energy + cheat-reward set waiting 0 set at-tree? false]
       hatch-results 1 [set age 0 set shape "cheat" set size 3]
       process-outcome p1 p2 3
       process-outcome p2 p1 2
     ]
     s1 = 2 and s2 = 1
     [
-      ask p1 [set energy energy + 40 set waiting 0 set at-tree? false]
+      ask p1 [set energy energy + cheat-reward set waiting 0 set at-tree? false]
       ask p2 [set waiting 0 set at-tree? false]
       hatch-results 1 [set age 0 set shape "cheat" set size 3]
       process-outcome p1 p2 2
       process-outcome p2 p1 3
     ]
     [
-      ask p1 [set energy energy + 10 set waiting 0 set at-tree? false]
-      ask p2 [set energy energy + 10 set waiting 0 set at-tree? false]
+      ask p1 [set energy energy + mutual-defect-reward set waiting 0 set at-tree? false]
+      ask p2 [set energy energy + mutual-defect-reward set waiting 0 set at-tree? false]
       hatch-results 1 [set age 0 set shape "defect" set size 3]
       process-outcome p1 p2 4
       process-outcome p2 p1 4
@@ -405,10 +411,10 @@ ticks
 30.0
 
 BUTTON
-35
-241
-98
-274
+33
+329
+96
+362
 NIL
 setup
 NIL
@@ -423,9 +429,9 @@ NIL
 
 SLIDER
 21
-286
+178
 193
-319
+211
 smooth
 smooth
 0
@@ -438,9 +444,9 @@ HORIZONTAL
 
 SLIDER
 21
-323
+214
 193
-356
+247
 max-level-ratio
 max-level-ratio
 0.1
@@ -453,9 +459,9 @@ HORIZONTAL
 
 SLIDER
 21
-359
+250
 193
-392
+283
 min-level-ratio
 min-level-ratio
 0.1
@@ -468,9 +474,9 @@ HORIZONTAL
 
 SLIDER
 21
-395
+286
 193
-428
+319
 rate
 rate
 0.001
@@ -482,10 +488,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-115
-241
-178
-274
+113
+329
+176
+362
 NIL
 go
 T
@@ -523,21 +529,6 @@ max-tree-age
 0
 500
 150.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-22
-201
-194
-234
-init-trees
-init-trees
-0
-200
-50.0
 1
 1
 NIL
@@ -616,15 +607,104 @@ PENS
 
 SLIDER
 22
-162
+581
 194
-195
+614
 mutation-rate
 mutation-rate
 0
 0.1
 0.1
 0.01
+1
+NIL
+HORIZONTAL
+
+INPUTBOX
+990
+531
+1143
+591
+mutual-defect-reward
+10.0
+1
+0
+Number
+
+INPUTBOX
+869
+530
+982
+590
+solo-reward
+10.0
+1
+0
+Number
+
+INPUTBOX
+990
+462
+1143
+522
+mutual-cooperate-reward
+25.0
+1
+0
+Number
+
+INPUTBOX
+869
+462
+981
+523
+cheat-reward
+40.0
+1
+0
+Number
+
+SLIDER
+21
+70
+193
+103
+initial-chumps
+initial-chumps
+0
+50
+0.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+22
+105
+194
+138
+initial-cheaters
+initial-cheaters
+0
+50
+0.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+21
+142
+193
+175
+initial-vengeful
+initial-vengeful
+0
+50
+50.0
+1
 1
 NIL
 HORIZONTAL
