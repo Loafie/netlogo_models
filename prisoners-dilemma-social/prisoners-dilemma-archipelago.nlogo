@@ -1,4 +1,4 @@
-globals [water-level max-level min-level lb ub colors]
+globals [water-level max-level min-level lb ub colors land-patches]
 breed [trees tree]
 breed [monkeys monkey]
 breed [ results result]
@@ -42,31 +42,32 @@ to setup
     set neighbors-diag ( neighbors with [
       (not member? self [neighbors4] of myself)] )
   ]
-  set colors [red green yellow cyan orange brown grey magenta]
-  ; ask patches
-  ; [
-  ; set level random 100
-  ; ]
-  ask n-of 50 patches
+  ifelse dynamic-terrain
   [
-    set level level + 2500
-  ]
-  repeat smooth
-  [
-    diffuse level 0.2
-  ]
-  set lb [level] of min-one-of patches [level]
-  set ub [level] of max-one-of patches [level]
-  ask patches
-  [
-    let diff ((level - lb) / (ub - lb))
-    set pcolor (rgb (1 + (diff * 246)) (122 + (diff * 120)) (30 + (diff * 138)))
-  ]
+    ask n-of 50 patches
+    [
+      set level level + 2500
+    ]
+    repeat smooth
+    [
+      diffuse level 0.2
+    ]
+    set lb [level] of min-one-of patches [level]
+    set ub [level] of max-one-of patches [level]
+    ask patches
+    [
+      let diff ((level - lb) / (ub - lb))
+      set pcolor (rgb (1 + (diff * 246)) (122 + (diff * 120)) (30 + (diff * 138)))
+    ]
 
-  set max-level ((max-level-ratio * ub) + ((1 - max-level-ratio) * lb))
-  set min-level ((min-level-ratio * ub) + ((1 - min-level-ratio) * lb))
-  set water-level min-level
-  ask patches with [level < water-level] [set pcolor blue]
+    set max-level ((max-level-ratio * ub) + ((1 - max-level-ratio) * lb))
+    set min-level ((min-level-ratio * ub) + ((1 - min-level-ratio) * lb))
+    set water-level min-level
+    ask patches with [level < water-level] [set pcolor blue]
+  ]
+  [
+    ask patches [set pcolor green set level 10 set water-level 0]
+  ]
   spawn-initial-monkeys initial-chumps 1
   spawn-initial-monkeys initial-cheaters 2
   spawn-initial-monkeys initial-vengeful 3
@@ -162,18 +163,40 @@ to make-distance-gradient
 end
 
 to go
-  set water-level ((max-level + min-level) / 2.0) + ((max-level - min-level) / 2.0) * sin (rate * ticks + 270)
-  ask patches with [level >= water-level]
+  ifelse dynamic-terrain
   [
-    let diff ((level - lb) / (ub - lb))
-    set pcolor (rgb (1 + (diff * 246)) (122 + (diff * 120)) (30 + (diff * 138)))
+    set land-patches 0
+    set water-level ((max-level + min-level) / 2.0) + ((max-level - min-level) / 2.0) * sin (rate * ticks + 270)
+    ask patches with [level >= water-level]
+    [
+      let diff ((level - lb) / (ub - lb))
+      set pcolor (rgb (1 + (diff * 246)) (122 + (diff * 120)) (30 + (diff * 138)))
+      set land-patches land-patches + 1
+    ]
+    ask patches with [level < water-level] [set pcolor blue]
   ]
-  ask patches with [level < water-level] [set pcolor blue]
-  ;;label-patches
-  let roll random-float 1
-  if roll < tree-grow-probability
   [
-    ask one-of patches with [level >= water-level]
+    set land-patches 129 * 129
+  ]
+  ;;label-patches
+  let mu land-patches * tree-grow-probability
+  let sigma sqrt ( mu * (1 - tree-grow-probability))
+  let roll random-normal mu sigma
+  let new-trees 0
+  if roll > 0
+  [
+    set new-trees ((int roll) + ifelse-value random-float 1 < (roll - int roll) [1][0])
+  ]
+  spawn-trees new-trees
+  ;;make-distance-gradient
+  process-monkeys
+  process-trees
+  process-results
+  tick
+end
+
+to spawn-trees [n]
+  ask n-of n patches with [level >= water-level]
     [
       if not any? trees-here [
         sprout-trees 1
@@ -186,14 +209,9 @@ to go
           set occupant2 nobody
         ]
       ]
-    ]
   ]
-  ;;make-distance-gradient
-  process-monkeys
-  process-trees
-  process-results
-  tick
 end
+
 
 to process-trees
   ask trees
@@ -507,14 +525,14 @@ NIL
 SLIDER
 20
 432
-193
+194
 465
 tree-grow-probability
 tree-grow-probability
 0
-1
-0.3
-0.01
+0.0005
+7.0E-5
+0.00001
 1
 NIL
 HORIZONTAL
@@ -648,7 +666,7 @@ INPUTBOX
 1143
 522
 mutual-cooperate-reward
-25.0
+15.0
 1
 0
 Number
@@ -659,7 +677,7 @@ INPUTBOX
 981
 523
 cheat-reward
-40.0
+20.0
 1
 0
 Number
@@ -673,7 +691,7 @@ initial-chumps
 initial-chumps
 0
 50
-0.0
+40.0
 1
 1
 NIL
@@ -703,11 +721,22 @@ initial-vengeful
 initial-vengeful
 0
 50
-50.0
+0.0
 1
 1
 NIL
 HORIZONTAL
+
+SWITCH
+32
+379
+174
+412
+dynamic-terrain
+dynamic-terrain
+1
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
