@@ -548,7 +548,7 @@ max-level-ratio
 max-level-ratio
 0.1
 0.9
-0.6
+0.55
 0.01
 1
 NIL
@@ -700,7 +700,7 @@ mutation-rate
 mutation-rate
 0
 0.1
-0.0
+0.1
 0.01
 1
 NIL
@@ -759,7 +759,7 @@ initial-chumps
 initial-chumps
 0
 50
-0.0
+25.0
 1
 1
 NIL
@@ -807,10 +807,10 @@ dynamic-terrain
 -1000
 
 BUTTON
-13
-407
-107
-440
+12
+404
+106
+437
 Show High Water
 set max-level ((max-level-ratio * ub) + ((1 - max-level-ratio) * lb))\nset min-level ((min-level-ratio * ub) + ((1 - min-level-ratio) * lb))\ndraw-level max-level
 NIL
@@ -824,10 +824,10 @@ NIL
 1
 
 BUTTON
-113
-407
-206
-440
+112
+404
+205
+437
 Show Low Water
 set max-level ((max-level-ratio * ub) + ((1 - max-level-ratio) * lb))\nset min-level ((min-level-ratio * ub) + ((1 - min-level-ratio) * lb))\ndraw-level min-level
 NIL
@@ -889,7 +889,7 @@ initial-vengeful-gossipers
 initial-vengeful-gossipers
 0
 50
-50.0
+0.0
 1
 1
 NIL
@@ -902,7 +902,7 @@ SWITCH
 624
 chumps-on?
 chumps-on?
-1
+0
 1
 -1000
 
@@ -913,7 +913,7 @@ SWITCH
 625
 cheaters-on?
 cheaters-on?
-1
+0
 1
 -1000
 
@@ -924,7 +924,7 @@ SWITCH
 661
 vf-on?
 vf-on?
-1
+0
 1
 -1000
 
@@ -935,7 +935,7 @@ SWITCH
 662
 vw-on?
 vw-on?
-1
+0
 1
 -1000
 
@@ -946,7 +946,7 @@ SWITCH
 662
 vg-on?
 vg-on?
-1
+0
 1
 -1000
 
