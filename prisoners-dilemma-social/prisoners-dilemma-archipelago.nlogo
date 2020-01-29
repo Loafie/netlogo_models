@@ -1,4 +1,4 @@
-globals [water-level max-level min-level lb ub colors land-patches]
+globals [water-level max-level min-level lb ub colors land-patches mouse-event?]
 breed [trees tree]
 breed [monkeys monkey]
 breed [ results result]
@@ -70,7 +70,11 @@ to setup
   ]
   spawn-initial-monkeys initial-chumps 1
   spawn-initial-monkeys initial-cheaters 2
-  spawn-initial-monkeys initial-vengeful 3
+  spawn-initial-monkeys initial-vengeful-friends 3
+  spawn-initial-monkeys initial-vengeful-watchers 4
+  spawn-initial-monkeys initial-vengeful-gossipers 5
+
+  set mouse-event? false
   reset-ticks
 end
 
@@ -163,17 +167,29 @@ to make-distance-gradient
 end
 
 to go
+  if not mouse-event? and mouse-down?
+  [
+    set mouse-event? true
+    click-spawn-new-monkey
+  ]
+  if mouse-event? and not mouse-down?
+  [
+    set mouse-event? false
+  ]
   ifelse dynamic-terrain
   [
     set land-patches 0
     set water-level ((max-level + min-level) / 2.0) + ((max-level - min-level) / 2.0) * sin (rate * ticks + 270)
-    ask patches with [level >= water-level]
+    ask patches
     [
-      let diff ((level - lb) / (ub - lb))
-      set pcolor (rgb (1 + (diff * 246)) (122 + (diff * 120)) (30 + (diff * 138)))
-      set land-patches land-patches + 1
+      ifelse (level >= water-level)
+      [
+        let diff ((level - lb) / (ub - lb))
+        set pcolor (rgb (1 + (diff * 246)) (122 + (diff * 120)) (30 + (diff * 138)))
+        set land-patches land-patches + 1
+      ]
+      [set pcolor blue]
     ]
-    ask patches with [level < water-level] [set pcolor blue]
   ]
   [
     set land-patches 129 * 129
@@ -225,7 +241,6 @@ to process-trees
       [ask occupant2 [die]]
       die
     ]
-    ;;if age > max-tree-age [die]
     (ifelse
       occupant2 != nobody
       [
@@ -296,7 +311,21 @@ to process-monkeys
       hatch-monkeys 1
       [
         if random-float 1 < mutation-rate
-        [set strategy one-of [1 2 3]]
+        [
+          let strategies []
+          if chumps-on? and [strategy] of myself != 1
+          [set strategies lput 1 strategies]
+          if cheaters-on? and [strategy] of myself != 2
+          [set strategies lput 2 strategies]
+          if vf-on? and [strategy] of myself != 3
+          [set strategies lput 3 strategies]
+          if vw-on? and [strategy] of myself != 4
+          [set strategies lput 4 strategies]
+          if vg-on? and [strategy] of myself != 5
+          [set strategies lput 5 strategies]
+          if not empty? strategies
+          [set strategy one-of strategies]
+        ]
         set energy 100
         set waiting 0
         set at-tree? false
@@ -371,7 +400,7 @@ to-report get-strategy [p1 p2]
     [report 1]
     [strategy] of p1 = 2
     [report 2]
-    [strategy] of p1 = 3
+    ([strategy] of p1 = 3 or [strategy] of p1 = 4 or [strategy] of p1 = 5)
     [
       if-else member? p2 ([memory] of p1)
       [report 2]
@@ -382,9 +411,20 @@ end
 
 to process-outcome [p1 p2 outcome] ;;1-cooperate 2-I cheated 3-got cheated 4-double defect
   (ifelse
-    outcome = 3 and [strategy] of p1 = 3
+    outcome = 3
     [
-      ask p1 [set memory (turtle-set memory p2)]
+      if [strategy] of p1 = 3 or [strategy] of p1 = 5
+      [
+        ask p1 [set memory (turtle-set memory p2)]
+      ]
+      ask monkeys in-radius observe-range with [strategy = 4]
+      [
+        set memory (turtle-set memory p2)
+      ]
+    ]
+    outcome = 1 and [strategy] of p1 = 5 and [strategy] of p2 = 5
+    [
+      ask p1 [set memory (turtle-set memory [memory] of p2)]
     ]
   )
 end
@@ -396,6 +436,45 @@ to process-results
     if age > visualization-peristence-ticks
     [die]
   ]
+end
+
+to draw-level [l]
+  ask patches
+    [
+      ifelse (level >= l)
+      [
+        let diff ((level - lb) / (ub - lb))
+        set pcolor (rgb (1 + (diff * 246)) (122 + (diff * 120)) (30 + (diff * 138)))
+        set land-patches land-patches + 1
+      ]
+      [set pcolor blue]
+    ]
+end
+
+to click-spawn-new-monkey
+  ask patch (round mouse-xcor) (round mouse-ycor)
+  [
+    if level >= water-level
+    [
+      let s 1
+      if click-spawn-type = "Chump" [set s 1]
+      if click-spawn-type = "Cheater" [set s 2]
+      if click-spawn-type = "Vengeful Friend" [set s 3]
+      sprout-monkeys 1
+      [
+        set size 3
+        set shape "monkey"
+        set color 33
+        set energy 100
+        set strategy s
+        set waiting 0
+        set at-tree? false
+        set target nobody
+        set memory turtle-set nobody
+      ]
+    ]
+  ]
+
 end
 
 
@@ -429,10 +508,10 @@ ticks
 30.0
 
 BUTTON
-33
-329
-96
-362
+38
+367
+101
+400
 NIL
 setup
 NIL
@@ -446,40 +525,40 @@ NIL
 1
 
 SLIDER
-21
-178
-193
-211
+22
+224
+194
+257
 smooth
 smooth
 0
-400
-400.0
+1000
+300.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-21
-214
-193
-247
+22
+259
+194
+292
 max-level-ratio
 max-level-ratio
 0.1
 0.9
-0.4
+0.6
 0.01
 1
 NIL
 HORIZONTAL
 
 SLIDER
-21
-250
-193
-283
+22
+294
+194
+327
 min-level-ratio
 min-level-ratio
 0.1
@@ -491,10 +570,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-21
-286
-193
-319
+22
+329
+194
+362
 rate
 rate
 0.001
@@ -506,10 +585,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-113
-329
-176
-362
+118
+367
+181
+400
 NIL
 go
 T
@@ -524,30 +603,15 @@ NIL
 
 SLIDER
 20
-432
+525
 194
-465
+558
 tree-grow-probability
 tree-grow-probability
 0
 0.0005
 7.0E-5
 0.00001
-1
-NIL
-HORIZONTAL
-
-SLIDER
-20
-469
-193
-502
-max-tree-age
-max-tree-age
-0
-500
-150.0
-1
 1
 NIL
 HORIZONTAL
@@ -572,12 +636,14 @@ PENS
 "Chumps" 1.0 0 -13345367 true "" "if ticks mod 1000 = 0 [plot count monkeys with [strategy = 1]]"
 "Cheaters" 1.0 0 -2674135 true "" "if ticks mod 1000 = 0 [plot count monkeys with [strategy = 2]]"
 "Vengeful Friends" 1.0 0 -13840069 true "" "if ticks mod 1000 = 0 [plot count monkeys with [strategy = 3]]"
+"Vengeful Watchers" 1.0 0 -955883 true "" "if ticks mod 1000 = 0 [plot count monkeys with [strategy = 4]]"
+"Vengeful Gossipers" 1.0 0 -5825686 true "" "if ticks mod 1000 = 0 [plot count monkeys with [strategy = 5]]"
 
 SLIDER
-21
-507
-193
-540
+20
+560
+194
+593
 wait-time
 wait-time
 0
@@ -589,10 +655,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-21
-545
+20
+595
 194
-578
+628
 visualization-peristence-ticks
 visualization-peristence-ticks
 0
@@ -612,7 +678,7 @@ Strategy Types
 NIL
 Monkeys
 0.0
-3.0
+5.0
 0.0
 10.0
 true
@@ -622,27 +688,29 @@ PENS
 "Chumps" 1.0 1 -13345367 true "" "plotxy 0 count monkeys with [strategy = 1]"
 "Cheaters" 1.0 1 -2674135 true "" "plotxy 1 count monkeys with [strategy = 2]"
 "Vengeful Friends" 1.0 1 -13840069 true "" "plotxy 2 count monkeys with [strategy = 3]"
+"Vengeful Watchers" 1.0 1 -955883 true "" "plotxy 3 count monkeys with [strategy = 4]"
+"Vengeful Gossipers" 1.0 1 -5825686 true "" "plotxy 4 count monkeys with [strategy = 5]"
 
 SLIDER
-22
-581
+20
+630
 194
-614
+663
 mutation-rate
 mutation-rate
 0
 0.1
-0.1
+0.0
 0.01
 1
 NIL
 HORIZONTAL
 
 INPUTBOX
-990
-531
-1143
-591
+988
+527
+1140
+587
 mutual-defect-reward
 10.0
 1
@@ -650,10 +718,10 @@ mutual-defect-reward
 Number
 
 INPUTBOX
-869
-530
+870
+526
 982
-590
+586
 solo-reward
 10.0
 1
@@ -661,10 +729,10 @@ solo-reward
 Number
 
 INPUTBOX
-990
-462
-1143
-522
+987
+460
+1140
+520
 mutual-cooperate-reward
 15.0
 1
@@ -673,9 +741,9 @@ Number
 
 INPUTBOX
 869
-462
+459
 981
-523
+520
 cheat-reward
 20.0
 1
@@ -683,15 +751,15 @@ cheat-reward
 Number
 
 SLIDER
-21
-70
-193
-103
+22
+45
+194
+78
 initial-chumps
 initial-chumps
 0
 50
-40.0
+0.0
 1
 1
 NIL
@@ -699,9 +767,9 @@ HORIZONTAL
 
 SLIDER
 22
-105
+80
 194
-138
+113
 initial-cheaters
 initial-cheaters
 0
@@ -713,12 +781,12 @@ NIL
 HORIZONTAL
 
 SLIDER
-21
-142
-193
-175
-initial-vengeful
-initial-vengeful
+22
+116
+194
+149
+initial-vengeful-friends
+initial-vengeful-friends
 0
 50
 0.0
@@ -728,12 +796,156 @@ NIL
 HORIZONTAL
 
 SWITCH
-32
-379
-174
-412
+37
+10
+179
+43
 dynamic-terrain
 dynamic-terrain
+0
+1
+-1000
+
+BUTTON
+13
+407
+107
+440
+Show High Water
+set max-level ((max-level-ratio * ub) + ((1 - max-level-ratio) * lb))\nset min-level ((min-level-ratio * ub) + ((1 - min-level-ratio) * lb))\ndraw-level max-level
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+113
+407
+206
+440
+Show Low Water
+set max-level ((max-level-ratio * ub) + ((1 - max-level-ratio) * lb))\nset min-level ((min-level-ratio * ub) + ((1 - min-level-ratio) * lb))\ndraw-level min-level
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+CHOOSER
+39
+443
+177
+488
+click-spawn-type
+click-spawn-type
+"Chump" "Cheater" "Vengeful Friend"
+1
+
+SLIDER
+20
+490
+194
+523
+observe-range
+observe-range
+0
+20
+10.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+22
+152
+195
+185
+initial-vengeful-watchers
+initial-vengeful-watchers
+0
+50
+0.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+22
+188
+194
+221
+initial-vengeful-gossipers
+initial-vengeful-gossipers
+0
+50
+50.0
+1
+1
+NIL
+HORIZONTAL
+
+SWITCH
+871
+591
+982
+624
+chumps-on?
+chumps-on?
+1
+1
+-1000
+
+SWITCH
+989
+592
+1141
+625
+cheaters-on?
+cheaters-on?
+1
+1
+-1000
+
+SWITCH
+872
+628
+962
+661
+vf-on?
+vf-on?
+1
+1
+-1000
+
+SWITCH
+968
+629
+1058
+662
+vw-on?
+vw-on?
+1
+1
+-1000
+
+SWITCH
+1063
+629
+1153
+662
+vg-on?
+vg-on?
 1
 1
 -1000
