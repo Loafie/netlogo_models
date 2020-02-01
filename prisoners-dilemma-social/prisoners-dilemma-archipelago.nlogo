@@ -1,7 +1,33 @@
-globals [water-level max-level min-level lb ub colors land-patches mouse-event?]
+globals
+[
+  water-level
+  max-level
+  min-level
+  lb
+  ub
+  colors
+  land-patches
+  mouse-event?
+  average-ratio-chumps
+  average-ratio-cheaters
+  average-ratio-vf
+  average-ratio-vw
+  average-ratio-vg
+  total-ratio-chumps
+  total-ratio-cheaters
+  total-ratio-vf
+  total-ratio-vw
+  total-ratio-vg
+  ticks-in-lead-chumps
+  ticks-in-lead-cheaters
+  ticks-in-lead-vf
+  ticks-in-lead-vw
+  ticks-in-lead-vg
+]
+
 breed [trees tree]
 breed [monkeys monkey]
-breed [ results result]
+breed [results result]
 
 trees-own
 [
@@ -208,6 +234,7 @@ to go
   process-monkeys
   process-trees
   process-results
+  if ticks mod 1000 = 0 [update-stats]
   tick
 end
 
@@ -477,6 +504,34 @@ to click-spawn-new-monkey
 
 end
 
+to update-stats
+  set total-ratio-chumps total-ratio-chumps + (count monkeys with [strategy = 1] / count monkeys)
+  set total-ratio-cheaters total-ratio-cheaters + (count monkeys with [strategy = 2] / count monkeys)
+  set total-ratio-vf total-ratio-vf + (count monkeys with [strategy = 3] / count monkeys)
+  set total-ratio-vw total-ratio-vw + (count monkeys with [strategy = 4] / count monkeys)
+  set total-ratio-vg total-ratio-vg + (count monkeys with [strategy = 5] / count monkeys)
+  set average-ratio-chumps total-ratio-chumps / ( (int (ticks / 1000)) + 1)
+  set average-ratio-cheaters total-ratio-cheaters / ( (int (ticks / 1000)) + 1)
+  set average-ratio-vf total-ratio-vf / ( (int (ticks / 1000)) + 1)
+  set average-ratio-vw total-ratio-vw / ( (int (ticks / 1000)) + 1)
+  set average-ratio-vg total-ratio-vg / ( (int (ticks / 1000)) + 1)
+  let counts (list (count monkeys with [strategy = 1]) (count monkeys with [strategy = 2]) (count monkeys with [strategy = 3]) (count monkeys with [strategy = 4]) (count monkeys with [strategy = 5]))
+  let winner max counts
+  (ifelse
+    (count monkeys with [strategy = 1]) = winner
+    [set ticks-in-lead-chumps ticks-in-lead-chumps + 1]
+    (count monkeys with [strategy = 2]) = winner
+    [set ticks-in-lead-cheaters ticks-in-lead-cheaters + 1]
+    (count monkeys with [strategy = 3]) = winner
+    [set ticks-in-lead-vf ticks-in-lead-vf + 1]
+    (count monkeys with [strategy = 4]) = winner
+    [set ticks-in-lead-vw ticks-in-lead-vw + 1]
+    (count monkeys with [strategy = 5]) = winner
+    [set ticks-in-lead-vg ticks-in-lead-vg + 1]
+  )
+end
+
+
 
 ; 247 153 138
 @#$#@#$#@
@@ -548,7 +603,7 @@ max-level-ratio
 max-level-ratio
 0.1
 0.9
-0.55
+0.5
 0.01
 1
 NIL
@@ -672,7 +727,7 @@ HORIZONTAL
 PLOT
 869
 234
-1194
+1192
 455
 Strategy Types
 NIL
@@ -700,7 +755,7 @@ mutation-rate
 mutation-rate
 0
 0.1
-0.1
+0.01
 0.01
 1
 NIL
@@ -759,7 +814,7 @@ initial-chumps
 initial-chumps
 0
 50
-25.0
+0.0
 1
 1
 NIL
@@ -774,7 +829,7 @@ initial-cheaters
 initial-cheaters
 0
 50
-0.0
+50.0
 1
 1
 NIL
@@ -902,7 +957,7 @@ SWITCH
 624
 chumps-on?
 chumps-on?
-0
+1
 1
 -1000
 
@@ -924,7 +979,7 @@ SWITCH
 661
 vf-on?
 vf-on?
-0
+1
 1
 -1000
 
@@ -935,7 +990,7 @@ SWITCH
 662
 vw-on?
 vw-on?
-0
+1
 1
 -1000
 
@@ -949,6 +1004,116 @@ vg-on?
 0
 1
 -1000
+
+MONITOR
+1199
+12
+1324
+57
+NIL
+ticks-in-lead-chumps
+17
+1
+11
+
+MONITOR
+1199
+62
+1325
+107
+NIL
+ticks-in-lead-cheaters
+17
+1
+11
+
+MONITOR
+1199
+112
+1325
+157
+NIL
+ticks-in-lead-vf
+17
+1
+11
+
+MONITOR
+1199
+163
+1325
+208
+NIL
+ticks-in-lead-vw
+17
+1
+11
+
+MONITOR
+1199
+216
+1326
+261
+NIL
+ticks-in-lead-vg
+17
+1
+11
+
+MONITOR
+1199
+267
+1327
+312
+NIL
+average-ratio-chumps
+17
+1
+11
+
+MONITOR
+1200
+318
+1328
+363
+NIL
+average-ratio-cheaters
+17
+1
+11
+
+MONITOR
+1200
+370
+1329
+415
+NIL
+average-ratio-vf
+17
+1
+11
+
+MONITOR
+1200
+421
+1330
+466
+NIL
+average-ratio-vw
+17
+1
+11
+
+MONITOR
+1201
+472
+1330
+517
+NIL
+average-ratio-vg
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
