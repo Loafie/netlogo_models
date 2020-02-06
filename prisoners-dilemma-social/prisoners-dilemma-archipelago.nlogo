@@ -1510,6 +1510,93 @@ NetLogo 6.1.1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
+<experiments>
+  <experiment name="experiment" repetitions="100" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="5000000"/>
+    <metric>ticks-in-lead-chumps</metric>
+    <metric>ticks-in-lead-vg</metric>
+    <metric>average-ratio-chumps</metric>
+    <metric>average-ratio-vg</metric>
+    <enumeratedValueSet variable="initial-chumps">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="rate">
+      <value value="0.005"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-cheaters">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="cheat-reward">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="click-spawn-type">
+      <value value="&quot;Cheater&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-level-ratio">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-vengeful-friends">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-level-ratio">
+      <value value="0.1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="mutual-defect-reward">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="dynamic-terrain">
+      <value value="false"/>
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="vw-on?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="cheaters-on?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="tree-grow-probability">
+      <value value="7.0E-5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="observe-range">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wait-time">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="smooth">
+      <value value="300"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-vengeful-watchers">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="vg-on?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="mutual-cooperate-reward">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="visualization-peristence-ticks">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="vf-on?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-vengeful-gossipers">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="chumps-on?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="solo-reward">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="mutation-rate">
+      <value value="0.01"/>
+    </enumeratedValueSet>
+  </experiment>
+</experiments>
 @#$#@#$#@
 @#$#@#$#@
 default
