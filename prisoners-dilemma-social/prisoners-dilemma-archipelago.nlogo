@@ -636,7 +636,7 @@ rate
 rate
 0.001
 0.1
-0.088
+0.002
 0.001
 1
 NIL
@@ -832,7 +832,7 @@ initial-cheaters
 initial-cheaters
 0
 50
-1.0
+30.0
 1
 1
 NIL
@@ -860,7 +860,7 @@ SWITCH
 43
 dynamic-terrain
 dynamic-terrain
-0
+1
 1
 -1000
 
@@ -1004,7 +1004,7 @@ SWITCH
 662
 vg-on?
 vg-on?
-0
+1
 1
 -1000
 
