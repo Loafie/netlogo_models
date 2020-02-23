@@ -487,6 +487,9 @@ to click-spawn-new-monkey
       if click-spawn-type = "Chump" [set s 1]
       if click-spawn-type = "Cheater" [set s 2]
       if click-spawn-type = "Vengeful Friend" [set s 3]
+      if click-spawn-type = "Vengeful Watcher" [set s 4]
+      if click-spawn-type = "Vengeful Gossiper" [set s 5]
+
       sprout-monkeys 1
       [
         set size 3
@@ -633,7 +636,7 @@ rate
 rate
 0.001
 0.1
-0.005
+0.088
 0.001
 1
 NIL
@@ -829,7 +832,7 @@ initial-cheaters
 initial-cheaters
 0
 50
-50.0
+1.0
 1
 1
 NIL
@@ -898,11 +901,11 @@ NIL
 CHOOSER
 39
 443
-177
+187
 488
 click-spawn-type
 click-spawn-type
-"Chump" "Cheater" "Vengeful Friend"
+"Chump" "Cheater" "Vengeful Friend" "Vengeful Watcher" "Vengeful Gossiper"
 1
 
 SLIDER
