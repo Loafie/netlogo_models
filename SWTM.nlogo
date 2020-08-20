@@ -389,7 +389,12 @@ to-report #-atoms-at-detector
   report p
 end
 
-
+to listen
+	let volume vibration-amplitude / 50  
+	let index position vibration-frequency [ 1.5 1.75 2 2.25 2.5 2.75 3 3.25 3.5 3.75 4 ]
+	let pitch item index ["C3" "D#3" "F3" "G3" "A3" "B3" "C4" "D4" "D#4" "E4" "F4"]
+	sound:play-tone pitch 0.7 volume
+end
 
 
 
@@ -564,7 +569,7 @@ BUTTON
 233
 403
 listen
-let volume vibration-amplitude / 50\n  \n let index position vibration-frequency [ 1.5 1.75 2 2.25 2.5 2.75 3 3.25 3.5 3.75 4 ]\nlet pitch item index [\"C3\" \"D#3\" \"F3\" \"G3\" \"A3\" \"B3\" \"C4\" \"D4\" \"D#4\" \"E4\" \"F4\"]\n\n sound:play-tone pitch 3 volume
+listen
 NIL
 1
 T
